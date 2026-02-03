@@ -1,8 +1,15 @@
 services:
   - type: web
-    name: registration
+    name: zebra-events
     env: python
-    plan: free
     buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT
-
+    startCommand: python app.py
+    envVars:
+      - key: ZEBRA_USER
+        sync: false
+      - key: ZEBRA_PASS
+        sync: false
+      - key: ZEBRA_GET_URL
+        value: https://25098.zebracrm.com/ext_interface.php?b=get_multi_cards_details
+      - key: ZEBRA_CARD_TYPE_FILTER
+        value: EVEFAM
