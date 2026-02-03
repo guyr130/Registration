@@ -7,7 +7,7 @@ from flask import Flask, render_template_string
 app = Flask(__name__)
 
 # ======================
-# ZEBRA CONFIG – HARD CODE (בדיקה!)
+# ZEBRA CONFIG – זמנית בקוד
 # ======================
 ZEBRA_GET_URL = "https://25098.zebracrm.com/ext_interface.php?b=get_multi_cards_details"
 ZEBRA_USER = "IVAPP"
@@ -97,16 +97,62 @@ HTML = """
 <html lang="he" dir="rtl">
 <head>
 <meta charset="utf-8">
-<title>בדיקת אירועים</title>
+<title>אירועים פתוחים</title>
 <style>
-body{font-family:Arial;background:#f4f6f8}
-.wrap{max-width:900px;margin:auto;padding:16px}
-.card{background:#fff;padding:12px;margin-bottom:10px;border-radius:12px}
-.debug{background:#fff3cd;padding:10px;border-radius:10px;margin-bottom:15px}
+body{
+    font-family:Arial;
+    background:#f4f6f8;
+    margin:0;
+}
+.container{
+    max-width:720px;
+    margin:0 auto;
+    padding:20px;
+}
+.card{
+    background:#fff;
+    border-radius:16px;
+    padding:16px;
+    margin-bottom:16px;
+    box-shadow:0 6px 20px rgba(0,0,0,.08);
+    display:flex;
+    flex-direction:column;
+}
+.title{
+    font-size:18px;
+    font-weight:700;
+    margin-bottom:8px;
+}
+.meta{
+    font-size:14px;
+    margin:4px 0;
+}
+.spacer{
+    flex:1;
+}
+.btn{
+    margin-top:14px;
+    padding:14px;
+    border-radius:12px;
+    border:none;
+    background:#e5e7eb;
+    color:#6b7280;
+    font-size:15px;
+    font-weight:700;
+    cursor:not-allowed;
+}
+.debug{
+    background:#fff3cd;
+    padding:12px;
+    border-radius:12px;
+    margin-bottom:20px;
+    font-size:14px;
+}
 </style>
 </head>
 <body>
-<div class="wrap">
+
+<div class="container">
 
 <div class="debug">
 סה״כ אירועים מהזברה: {{ total }}<br>
@@ -115,14 +161,18 @@ body{font-family:Arial;background:#f4f6f8}
 
 {% for e in events %}
 <div class="card">
-<strong>{{ e.name }}</strong><br>
-📅 {{ e.date }} | ⏰ {{ e.hour }}<br>
-📍 {{ e.loc }}<br>
-סטטוס: {{ e.sta }}
+    <div class="title">{{ e.name }}</div>
+    <div class="meta">📅 {{ e.date }} | ⏰ {{ e.hour }}</div>
+    <div class="meta">📍 {{ e.loc }}</div>
+
+    <div class="spacer"></div>
+
+    <button class="btn" disabled>רישום לאירוע (בקרוב)</button>
 </div>
 {% endfor %}
 
 </div>
+
 </body>
 </html>
 """
