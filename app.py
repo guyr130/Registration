@@ -64,7 +64,6 @@ def extract_cards_safe(xml_text):
     cards = []
     for m in re.finditer(r"<CARD>(.*?)</CARD>", xml_text, re.DOTALL):
         card_xml = "<CARD>" + m.group(1) + "</CARD>"
-        # ניקוי & לא חוקי
         card_xml = re.sub(r"&(?!(amp;|lt;|gt;|quot;|apos;))", "&amp;", card_xml)
         try:
             cards.append(ET.fromstring(card_xml))
@@ -73,20 +72,25 @@ def extract_cards_safe(xml_text):
     return cards
 
 def zebra_get_events():
+    # אם אין ENV – לא מפילים את האתר
     if not ZEBRA_USER or not ZEBRA_PASS:
-        raise RuntimeError("חסרים ZEBRA_USER / ZEBRA_PASS ב-ENV")
+        print("⚠️ ZEBRA_USER / ZEBRA_PASS לא מוגדרים")
+        return []
 
-    resp = requests.post(
-        ZEBRA_GET_URL,
-        data=zebra_request_xml().encode("utf-8"),
-        headers={"Content-Type": "application/xml; charset=utf-8"},
-        timeout=40
-    )
-    resp.raise_for_status()
+    try:
+        resp = requests.post(
+            ZEBRA_GET_URL,
+            data=zebra_request_xml().encode("utf-8"),
+            headers={"Content-Type": "application/xml; charset=utf-8"},
+            timeout=40
+        )
+        resp.raise_for_status()
+    except Exception as e:
+        print("❌ שגיאה בקריאה לזברה:", e)
+        return []
 
     cards = extract_cards_safe(resp.text)
     today = date.today()
-
     events = []
 
     for c in cards:
@@ -101,25 +105,22 @@ def zebra_get_events():
         ev_date = parse_date_ddmmyyyy(get("EV_D"))
         sta_ev = get("STA_EV")
 
-        # ===== סינון קריטי =====
+        # ===== סינון =====
         if sta_ev != "1":
             continue
-        if not ev_date:
-            continue
-        if ev_date < today:
+        if not ev_date or ev_date < today:
             continue
 
         events.append({
             "id": (c.findtext("ID") or "").strip(),
             "name": get("EV_N"),
             "date_raw": get("EV_D"),
-            "date_obj": ev_date,
             "hour": get("EVE_HOUR"),
             "loc": get("EVE_LOC"),
             "order": safe_int(get("EVE_ORDER")),
+            "date_obj": ev_date,
         })
 
-    # מיון: סדר הצגה ואז תאריך
     events.sort(key=lambda x: (x["order"], x["date_obj"]))
     return events
 
@@ -141,24 +142,28 @@ box-shadow:0 6px 20px rgba(0,0,0,.06)}
 .meta{margin-top:6px;font-size:14px}
 .btn{margin-top:10px;padding:12px;border-radius:10px;
 border:none;background:#e5e7eb;color:#6b7280;font-weight:700}
+.warn{background:#fff3cd;padding:12px;border-radius:10px;margin-bottom:12px}
 </style>
 </head>
 <body>
 <div class="wrap">
 <h2>אירועים פתוחים</h2>
 
-{% if events %}
-  {% for e in events %}
-    <div class="card">
-      <div class="title">{{ e.name }}</div>
-      <div class="meta">📅 {{ e.date_raw }} | ⏰ {{ e.hour }}</div>
-      <div class="meta">📍 {{ e.loc }}</div>
-      <button class="btn" disabled>רישום לאירוע (בקרוב)</button>
-    </div>
-  {% endfor %}
-{% else %}
-  <div class="card">אין כרגע אירועים פעילים עתידיים</div>
+{% if not events %}
+  <div class="warn">
+    אין כרגע אירועים להצגה.<br>
+    אם זה לא צפוי – בדוק חיבור לזברה.
+  </div>
 {% endif %}
+
+{% for e in events %}
+  <div class="card">
+    <div class="title">{{ e.name }}</div>
+    <div class="meta">📅 {{ e.date_raw }} | ⏰ {{ e.hour }}</div>
+    <div class="meta">📍 {{ e.loc }}</div>
+    <button class="btn" disabled>רישום לאירוע (בקרוב)</button>
+  </div>
+{% endfor %}
 
 </div>
 </body>
