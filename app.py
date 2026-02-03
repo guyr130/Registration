@@ -7,7 +7,7 @@ from flask import Flask, render_template_string
 app = Flask(__name__)
 
 # ======================
-# ZEBRA CONFIG – זמנית בקוד
+# ZEBRA CONFIG – זמני בקוד
 # ======================
 ZEBRA_GET_URL = "https://25098.zebracrm.com/ext_interface.php?b=get_multi_cards_details"
 ZEBRA_USER = "IVAPP"
@@ -111,42 +111,45 @@ body{
 }
 .card{
     background:#fff;
-    border-radius:16px;
-    padding:16px;
-    margin-bottom:16px;
-    box-shadow:0 6px 20px rgba(0,0,0,.08);
+    border-radius:18px;
+    padding:20px;
+    margin-bottom:18px;
+    box-shadow:0 8px 22px rgba(0,0,0,.08);
     display:flex;
     flex-direction:column;
+    text-align:center;
 }
 .title{
-    font-size:18px;
+    font-size:20px;
     font-weight:700;
-    margin-bottom:8px;
+    margin-bottom:10px;
 }
 .meta{
-    font-size:14px;
-    margin:4px 0;
+    font-size:15px;
+    margin:6px 0;
 }
 .spacer{
     flex:1;
 }
 .btn{
-    margin-top:14px;
+    margin-top:18px;
     padding:14px;
-    border-radius:12px;
+    border-radius:14px;
     border:none;
-    background:#e5e7eb;
-    color:#6b7280;
-    font-size:15px;
+    background:#0b5ed7;   /* כחול דגל */
+    color:#ffffff;
+    font-size:16px;
     font-weight:700;
     cursor:not-allowed;
+    opacity:0.85;
 }
 .debug{
     background:#fff3cd;
     padding:12px;
-    border-radius:12px;
-    margin-bottom:20px;
+    border-radius:14px;
+    margin-bottom:22px;
     font-size:14px;
+    text-align:center;
 }
 </style>
 </head>
