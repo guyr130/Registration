@@ -3,13 +3,13 @@ import os
 import re
 import requests
 import xml.etree.ElementTree as ET
-from datetime import datetime, date
+from datetime import datetime
 from flask import Flask, render_template_string
 
 app = Flask(__name__)
 
 # ======================
-# ZEBRA CONFIG (ENV ב-Render)
+# ZEBRA CONFIG
 # ======================
 ZEBRA_GET_URL = os.getenv(
     "ZEBRA_GET_URL",
@@ -23,18 +23,10 @@ ZEBRA_CARD_TYPE_FILTER = os.getenv("ZEBRA_CARD_TYPE_FILTER", "EVEFAM")
 # HELPERS
 # ======================
 def parse_date_ddmmyyyy(s):
-    if not s:
-        return None
     try:
         return datetime.strptime(s.strip(), "%d/%m/%Y").date()
     except Exception:
         return None
-
-def safe_int(x, default=9999):
-    try:
-        return int(str(x).strip())
-    except Exception:
-        return default
 
 def zebra_request_xml():
     return f"""<?xml version="1.0" encoding="utf-8"?>
@@ -54,44 +46,36 @@ def zebra_request_xml():
     <EVE_ORDER></EVE_ORDER>
     <STA_EV></STA_EV>
   </FIELDS>
-
-  <ID></ID>
-  <CARD_TYPE></CARD_TYPE>
 </ROOT>
 """
 
 def extract_cards_safe(xml_text):
     cards = []
     for m in re.finditer(r"<CARD>(.*?)</CARD>", xml_text, re.DOTALL):
-        card_xml = "<CARD>" + m.group(1) + "</CARD>"
-        card_xml = re.sub(r"&(?!(amp;|lt;|gt;|quot;|apos;))", "&amp;", card_xml)
+        xml = "<CARD>" + m.group(1) + "</CARD>"
+        xml = re.sub(r"&(?!(amp;|lt;|gt;|quot;|apos;))", "&amp;", xml)
         try:
-            cards.append(ET.fromstring(card_xml))
+            cards.append(ET.fromstring(xml))
         except Exception:
-            continue
+            pass
     return cards
 
 def zebra_get_events():
-    # אם אין ENV – לא מפילים את האתר
     if not ZEBRA_USER or not ZEBRA_PASS:
-        print("⚠️ ZEBRA_USER / ZEBRA_PASS לא מוגדרים")
-        return []
+        raise RuntimeError("חסרים פרטי התחברות לזברה")
 
-    try:
-        resp = requests.post(
-            ZEBRA_GET_URL,
-            data=zebra_request_xml().encode("utf-8"),
-            headers={"Content-Type": "application/xml; charset=utf-8"},
-            timeout=40
-        )
-        resp.raise_for_status()
-    except Exception as e:
-        print("❌ שגיאה בקריאה לזברה:", e)
-        return []
+    resp = requests.post(
+        ZEBRA_GET_URL,
+        data=zebra_request_xml().encode("utf-8"),
+        headers={"Content-Type": "application/xml"},
+        timeout=40
+    )
+    resp.raise_for_status()
 
     cards = extract_cards_safe(resp.text)
-    today = date.today()
-    events = []
+
+    all_events = []
+    active_events = []
 
     for c in cards:
         fields = c.find(".//FIELDS")
@@ -102,27 +86,20 @@ def zebra_get_events():
             el = fields.find(tag)
             return (el.text or "").strip() if el is not None else ""
 
-        ev_date = parse_date_ddmmyyyy(get("EV_D"))
-        sta_ev = get("STA_EV")
-
-        # ===== סינון =====
-        if sta_ev != "1":
-            continue
-        if not ev_date or ev_date < today:
-            continue
-
-        events.append({
-            "id": (c.findtext("ID") or "").strip(),
+        event = {
             "name": get("EV_N"),
-            "date_raw": get("EV_D"),
+            "date": get("EV_D"),
             "hour": get("EVE_HOUR"),
             "loc": get("EVE_LOC"),
-            "order": safe_int(get("EVE_ORDER")),
-            "date_obj": ev_date,
-        })
+            "sta": get("STA_EV")
+        }
 
-    events.sort(key=lambda x: (x["order"], x["date_obj"]))
-    return events
+        all_events.append(event)
+
+        if event["sta"] == "1":
+            active_events.append(event)
+
+    return all_events, active_events
 
 # ======================
 # UI
@@ -132,37 +109,29 @@ HTML = """
 <html lang="he" dir="rtl">
 <head>
 <meta charset="utf-8">
-<title>אירועים פתוחים</title>
+<title>בדיקת אירועים</title>
 <style>
-body{font-family:Arial;background:#f4f6f8;margin:0}
+body{font-family:Arial;background:#f4f6f8}
 .wrap{max-width:900px;margin:auto;padding:16px}
-.card{background:#fff;border-radius:14px;padding:14px;margin-bottom:12px;
-box-shadow:0 6px 20px rgba(0,0,0,.06)}
-.title{font-size:18px;font-weight:700}
-.meta{margin-top:6px;font-size:14px}
-.btn{margin-top:10px;padding:12px;border-radius:10px;
-border:none;background:#e5e7eb;color:#6b7280;font-weight:700}
-.warn{background:#fff3cd;padding:12px;border-radius:10px;margin-bottom:12px}
+.card{background:#fff;padding:12px;margin-bottom:10px;border-radius:12px}
+.debug{background:#fff3cd;padding:10px;border-radius:10px;margin-bottom:15px}
 </style>
 </head>
 <body>
 <div class="wrap">
-<h2>אירועים פתוחים</h2>
 
-{% if not events %}
-  <div class="warn">
-    אין כרגע אירועים להצגה.<br>
-    אם זה לא צפוי – בדוק חיבור לזברה.
-  </div>
-{% endif %}
+<div class="debug">
+סה״כ אירועים מהזברה: {{ total }}<br>
+אירועים פעילים (STA_EV=1): {{ active }}
+</div>
 
 {% for e in events %}
-  <div class="card">
-    <div class="title">{{ e.name }}</div>
-    <div class="meta">📅 {{ e.date_raw }} | ⏰ {{ e.hour }}</div>
-    <div class="meta">📍 {{ e.loc }}</div>
-    <button class="btn" disabled>רישום לאירוע (בקרוב)</button>
-  </div>
+<div class="card">
+<strong>{{ e.name }}</strong><br>
+📅 {{ e.date }} | ⏰ {{ e.hour }}<br>
+📍 {{ e.loc }}<br>
+סטטוס: {{ e.sta }}
+</div>
 {% endfor %}
 
 </div>
@@ -172,8 +141,13 @@ border:none;background:#e5e7eb;color:#6b7280;font-weight:700}
 
 @app.route("/")
 def index():
-    events = zebra_get_events()
-    return render_template_string(HTML, events=events)
+    all_events, active_events = zebra_get_events()
+    return render_template_string(
+        HTML,
+        events=active_events,
+        total=len(all_events),
+        active=len(active_events)
+    )
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.getenv("PORT", "10000")))
