@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-import os
 import re
 import requests
 import xml.etree.ElementTree as ET
@@ -8,15 +7,12 @@ from flask import Flask, render_template_string
 app = Flask(__name__)
 
 # ======================
-# ZEBRA CONFIG
+# ZEBRA CONFIG – HARD CODE (בדיקה!)
 # ======================
-ZEBRA_GET_URL = os.getenv(
-    "ZEBRA_GET_URL",
-    "https://25098.zebracrm.com/ext_interface.php?b=get_multi_cards_details"
-)
-ZEBRA_USER = os.getenv("ZEBRA_USER", "")
-ZEBRA_PASS = os.getenv("ZEBRA_PASS", "")
-ZEBRA_CARD_TYPE = os.getenv("ZEBRA_CARD_TYPE_FILTER", "EVEFAM")
+ZEBRA_GET_URL = "https://25098.zebracrm.com/ext_interface.php?b=get_multi_cards_details"
+ZEBRA_USER = "IVAPP"
+ZEBRA_PASS = "1q2w3e4r"
+ZEBRA_CARD_TYPE = "EVEFAM"
 
 # ======================
 # XML
@@ -30,7 +26,6 @@ def zebra_request_xml():
     </PERMISSION>
 
     <CARD_TYPE_FILTER>{ZEBRA_CARD_TYPE}</CARD_TYPE_FILTER>
-    <CARD_TYPE>{ZEBRA_CARD_TYPE}</CARD_TYPE>
 
     <FIELDS>
         <EV_N></EV_N>
@@ -42,12 +37,10 @@ def zebra_request_xml():
     </FIELDS>
 
     <ID></ID>
+    <CARD_TYPE></CARD_TYPE>
 </ROOT>
 """
 
-# ======================
-# PARSE
-# ======================
 def extract_cards_safe(xml_text):
     cards = []
     for m in re.finditer(r"<CARD>(.*?)</CARD>", xml_text, re.DOTALL):
@@ -62,8 +55,8 @@ def extract_cards_safe(xml_text):
 def zebra_get_events():
     resp = requests.post(
         ZEBRA_GET_URL,
-        data=zebra_request_xml().encode("utf-8"),
-        headers={"Content-Type": "text/xml; charset=utf-8"},
+        data=zebra_request_xml(),
+        headers={"Content-Type": "text/xml"},
         timeout=40
     )
     resp.raise_for_status()
@@ -145,4 +138,4 @@ def index():
     )
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.getenv("PORT", "10000")))
+    app.run(host="0.0.0.0", port=10000)
