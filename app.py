@@ -22,30 +22,27 @@ ZEBRA_CARD_TYPE_FILTER = os.getenv("ZEBRA_CARD_TYPE_FILTER", "EVEFAM")
 # ======================
 # HELPERS
 # ======================
-def parse_date_ddmmyyyy(s):
-    try:
-        return datetime.strptime(s.strip(), "%d/%m/%Y").date()
-    except Exception:
-        return None
-
 def zebra_request_xml():
     return f"""<?xml version="1.0" encoding="utf-8"?>
 <ROOT>
-  <PERMISSION>
-    <USERNAME>{ZEBRA_USER}</USERNAME>
-    <PASSWORD>{ZEBRA_PASS}</PASSWORD>
-  </PERMISSION>
+    <PERMISSION>
+        <USERNAME>{ZEBRA_USER}</USERNAME>
+        <PASSWORD>{ZEBRA_PASS}</PASSWORD>
+    </PERMISSION>
 
-  <CARD_TYPE_FILTER>{ZEBRA_CARD_TYPE_FILTER}</CARD_TYPE_FILTER>
+    <CARD_TYPE_FILTER>{ZEBRA_CARD_TYPE_FILTER}</CARD_TYPE_FILTER>
 
-  <FIELDS>
-    <EV_N></EV_N>
-    <EV_D></EV_D>
-    <EVE_HOUR></EVE_HOUR>
-    <EVE_LOC></EVE_LOC>
-    <EVE_ORDER></EVE_ORDER>
-    <STA_EV></STA_EV>
-  </FIELDS>
+    <FIELDS>
+        <EV_N></EV_N>
+        <EV_D></EV_D>
+        <EVE_HOUR></EVE_HOUR>
+        <EVE_LOC></EVE_LOC>
+        <EVE_ORDER></EVE_ORDER>
+        <STA_EV></STA_EV>
+    </FIELDS>
+
+    <ID></ID>
+    <CARD_TYPE></CARD_TYPE>
 </ROOT>
 """
 
@@ -61,13 +58,10 @@ def extract_cards_safe(xml_text):
     return cards
 
 def zebra_get_events():
-    if not ZEBRA_USER or not ZEBRA_PASS:
-        raise RuntimeError("חסרים פרטי התחברות לזברה")
-
     resp = requests.post(
         ZEBRA_GET_URL,
         data=zebra_request_xml().encode("utf-8"),
-        headers={"Content-Type": "application/xml"},
+        headers={"Content-Type": "application/xml; charset=utf-8"},
         timeout=40
     )
     resp.raise_for_status()
