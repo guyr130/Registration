@@ -3,7 +3,6 @@ import os
 import re
 import requests
 import xml.etree.ElementTree as ET
-from datetime import datetime
 from flask import Flask, render_template_string
 
 app = Flask(__name__)
@@ -17,10 +16,10 @@ ZEBRA_GET_URL = os.getenv(
 )
 ZEBRA_USER = os.getenv("ZEBRA_USER", "")
 ZEBRA_PASS = os.getenv("ZEBRA_PASS", "")
-ZEBRA_CARD_TYPE_FILTER = os.getenv("ZEBRA_CARD_TYPE_FILTER", "EVEFAM")
+ZEBRA_CARD_TYPE = os.getenv("ZEBRA_CARD_TYPE_FILTER", "EVEFAM")
 
 # ======================
-# HELPERS
+# XML
 # ======================
 def zebra_request_xml():
     return f"""<?xml version="1.0" encoding="utf-8"?>
@@ -30,7 +29,8 @@ def zebra_request_xml():
         <PASSWORD>{ZEBRA_PASS}</PASSWORD>
     </PERMISSION>
 
-    <CARD_TYPE_FILTER>{ZEBRA_CARD_TYPE_FILTER}</CARD_TYPE_FILTER>
+    <CARD_TYPE_FILTER>{ZEBRA_CARD_TYPE}</CARD_TYPE_FILTER>
+    <CARD_TYPE>{ZEBRA_CARD_TYPE}</CARD_TYPE>
 
     <FIELDS>
         <EV_N></EV_N>
@@ -42,10 +42,12 @@ def zebra_request_xml():
     </FIELDS>
 
     <ID></ID>
-    <CARD_TYPE></CARD_TYPE>
 </ROOT>
 """
 
+# ======================
+# PARSE
+# ======================
 def extract_cards_safe(xml_text):
     cards = []
     for m in re.finditer(r"<CARD>(.*?)</CARD>", xml_text, re.DOTALL):
@@ -61,7 +63,7 @@ def zebra_get_events():
     resp = requests.post(
         ZEBRA_GET_URL,
         data=zebra_request_xml().encode("utf-8"),
-        headers={"Content-Type": "application/xml; charset=utf-8"},
+        headers={"Content-Type": "text/xml; charset=utf-8"},
         timeout=40
     )
     resp.raise_for_status()
@@ -80,18 +82,17 @@ def zebra_get_events():
             el = fields.find(tag)
             return (el.text or "").strip() if el is not None else ""
 
-        event = {
+        ev = {
             "name": get("EV_N"),
             "date": get("EV_D"),
             "hour": get("EVE_HOUR"),
             "loc": get("EVE_LOC"),
-            "sta": get("STA_EV")
+            "sta": get("STA_EV"),
         }
 
-        all_events.append(event)
-
-        if event["sta"] == "1":
-            active_events.append(event)
+        all_events.append(ev)
+        if ev["sta"] == "1":
+            active_events.append(ev)
 
     return all_events, active_events
 
